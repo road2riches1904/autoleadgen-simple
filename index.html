@@ -68,7 +68,7 @@
                     <input type="text" id="keywords" placeholder="Job Title (e.g., CEO, Marketing Director)" style="padding: 0.5rem; margin-right: 1rem; border: 1px solid #ddd; border-radius: 4px;">
                 </div>
                 
-                <button class="btn btn-primary" onclick="generateRealLeads()" id="generate-btn">🚀 Generate Real Leads with Apollo.io</button>
+                <button class="btn btn-primary" onclick="generateLeads()" id="generate-btn">🚀 Generate Real Leads with Apollo.io</button>
                 <div id="loading" style="display: none; margin-top: 1rem; color: #666;">Searching Apollo.io database...</div>
             </div>
 
@@ -103,90 +103,133 @@
     </main>
 
     <script>
-        let leadCount = 47;
+    let leadCount = 47;
+    let isGenerating = false;
+    
+    async function generateLeads() {
+        if (isGenerating) return;
         
-        async function generateRealLeads() {
-            const btn = document.getElementById('generate-btn');
-            const loading = document.getElementById('loading');
+        isGenerating = true;
+        const btn = document.getElementById('generate-btn');
+        btn.textContent = 'Generating Real Leads...';
+        btn.classList.add('generating');
+        
+        try {
+            // Get form values for dynamic targeting
             const industry = document.getElementById('industry').value || 'Technology';
             const location = document.getElementById('location').value || 'United States';
             const keywords = document.getElementById('keywords').value || 'CEO';
             
-            btn.disabled = true;
-            btn.textContent = 'Generating...';
-            btn.classList.add('generating');
-            loading.style.display = 'block';
+            // Call your new API endpoint
+            const response = await fetch('/api/leads', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    industry: industry,
+                    location: location,
+                    companySize: '1,50',
+                    keywords: keywords
+                })
+            });
             
-            try {
-                // This will call your Apollo.io API once it's set up
-                // For now, simulate real lead generation
-                await new Promise(resolve => setTimeout(resolve, 3000));
+            const data = await response.json();
+            
+            if (data.leads && data.leads.length > 0) {
+                leadCount += data.leads.length;
+                document.getElementById('total-leads').textContent = leadCount;
                 
-                // Demo leads that look like Apollo.io results
-                const demoLeads = [
-                    {
-                        company: `${industry} Solutions Inc`,
-                        email: `contact@${industry.toLowerCase()}solutions.com`,
-                        industry: industry,
-                        score: 94,
-                        status: 'Hot',
-                        phone: '+1 (555) 123-4567'
-                    },
-                    {
-                        company: `${location} ${industry} Corp`,
-                        email: `sales@${industry.toLowerCase()}corp.com`,
-                        industry: industry,
-                        score: 87,
-                        status: 'Warm', 
-                        phone: '+1 (555) 987-6543'
-                    },
-                    {
-                        company: `Elite ${industry} Group`,
-                        email: `info@elite${industry.toLowerCase()}.com`,
-                        industry: industry,
-                        score: 91,
-                        status: 'Hot',
-                        phone: '+1 (555) 456-7890'
-                    }
-                ];
-                
-                // Add leads to table
+                // Add new leads to table
                 const tbody = document.querySelector('#leads-table tbody');
-                tbody.innerHTML = ''; // Clear existing
+                tbody.innerHTML = ''; // Clear existing leads
                 
-                demoLeads.forEach(lead => {
-                    const row = tbody.insertRow();
+                data.leads.forEach(lead => {
+                    const row = tbody.insertRow(0);
                     row.innerHTML = `
-                        <td><strong>${lead.company}</strong></td>
+                        <td><strong>${lead.name || lead.company}</strong></td>
                         <td>${lead.email}</td>
                         <td>${lead.industry}</td>
-                        <td><span class="badge badge-high">${lead.score}</span></td>
+                        <td><span class="badge badge-${lead.score >= 90 ? 'high' : 'medium'}">${lead.score}</span></td>
                         <td><span class="badge badge-${lead.status.toLowerCase()}">${lead.status}</span></td>
-                        <td>${lead.phone}</td>
+                        <td>${lead.phone || lead.value || 'N/A'}</td>
                     `;
                 });
                 
-                leadCount += demoLeads.length;
-                document.getElementById('total-leads').textContent = leadCount;
-                
-                alert(`🎉 Generated ${demoLeads.length} leads for ${industry} companies in ${location}!\n\nTo get REAL Apollo.io data, add your API key to Vercel environment variables.`);
-                
-            } catch (error) {
-                alert('Error generating leads. Please try again.');
-            } finally {
-                btn.disabled = false;
-                btn.textContent = '🚀 Generate Real Leads with Apollo.io';
-                btn.classList.remove('generating');
-                loading.style.display = 'none';
+                showAlert(`🎉 ${data.leads.length} new REAL leads generated from Apollo.io!`);
+            } else {
+                showAlert('No leads found for this search. Try different criteria.');
             }
+        } catch (error) {
+            console.error('Error generating leads:', error);
+            
+            // Fallback to demo data if API fails
+            const industry = document.getElementById('industry').value || 'Technology';
+            const location = document.getElementById('location').value || 'United States';
+            const keywords = document.getElementById('keywords').value || 'CEO';
+            
+            const demoLeads = [
+                {
+                    name: `${industry} Solutions Inc`,
+                    email: `contact@${industry.toLowerCase()}solutions.com`,
+                    industry: industry,
+                    score: 94,
+                    status: 'Hot',
+                    phone: '+1 (555) 123-4567'
+                },
+                {
+                    name: `${location} ${industry} Corp`,
+                    email: `sales@${industry.toLowerCase()}corp.com`,
+                    industry: industry,
+                    score: 87,
+                    status: 'Warm', 
+                    phone: '+1 (555) 987-6543'
+                },
+                {
+                    name: `Elite ${industry} Group`,
+                    email: `info@elite${industry.toLowerCase()}.com`,
+                    industry: industry,
+                    score: 91,
+                    status: 'Hot',
+                    phone: '+1 (555) 456-7890'
+                }
+            ];
+            
+            // Add demo leads to table
+            const tbody = document.querySelector('#leads-table tbody');
+            tbody.innerHTML = ''; // Clear existing
+            
+            demoLeads.forEach(lead => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td><strong>${lead.name}</strong></td>
+                    <td>${lead.email}</td>
+                    <td>${lead.industry}</td>
+                    <td><span class="badge badge-high">${lead.score}</span></td>
+                    <td><span class="badge badge-${lead.status.toLowerCase()}">${lead.status}</span></td>
+                    <td>${lead.phone}</td>
+                `;
+            });
+            
+            leadCount += demoLeads.length;
+            document.getElementById('total-leads').textContent = leadCount;
+            
+            showAlert(`⚠️ API not configured yet. Showing demo leads. Add Apollo.io API key for real data.`);
+        } finally {
+            btn.textContent = '🚀 Generate Real Leads with Apollo.io';
+            btn.classList.remove('generating');
+            isGenerating = false;
         }
-        
-        // Auto-populate some demo data on load
-        window.onload = function() {
-            document.getElementById('industry').value = 'Technology';
-            document.getElementById('location').value = 'United States';
-            document.getElementById('keywords').value = 'CEO';
-        }
-    </script>
-</body>
-</html>
+    }
+    
+    function showAlert(message) {
+        alert(message);
+    }
+    
+    // Auto-populate some demo data on load
+    window.onload = function() {
+        document.getElementById('industry').value = 'Technology';
+        document.getElementById('location').value = 'United States';
+        document.getElementById('keywords').value = 'CEO';
+    }
+</script>
